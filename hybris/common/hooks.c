@@ -71,6 +71,8 @@
 #include "logging.h"
 #define LOGD(message, ...) HYBRIS_DEBUG_LOG(HOOKS, message, ##__VA_ARGS__)
 
+static int nvidia_hack = 0;
+
 /* we have a value p:
  *  - if p <= ANDROID_TOP_ADDR_VALUE_MUTEX then it is an android mutex, not one we processed
  *  - if p > VMALLOC_END, then the pointer is not a result of malloc ==> it is an shm offset
@@ -155,7 +157,12 @@ static pthread_rwlock_t* hybris_alloc_init_rwlock(void)
 
 static void *my_malloc(size_t size)
 {
-    return malloc(size);
+    if (nvidia_hack) {
+        size_t s = malloc(sizeof(size_t));
+        s = size;
+        return malloc(s);
+    } else
+        return malloc(size);
 }
 
 static void *my_memcpy(void *dst, const void *src, size_t len)
@@ -394,6 +401,9 @@ static int my_pthread_mutex_destroy(pthread_mutex_t *__mutex)
 
 static int my_pthread_mutex_lock(pthread_mutex_t *__mutex)
 {
+    if (nvidia_hack)
+        return 0;
+
     if (!__mutex) {
         LOGD("Null mutex lock, not locking.");
         return 0;
@@ -440,6 +450,9 @@ static int my_pthread_mutex_trylock(pthread_mutex_t *__mutex)
 
 static int my_pthread_mutex_unlock(pthread_mutex_t *__mutex)
 {
+    if (nvidia_hack)
+        return 0;
+
     if (!__mutex) {
         LOGD("Null mutex lock, not unlocking.");
         return 0;
@@ -497,6 +510,8 @@ static int my_pthread_mutex_lock_timeout_np(pthread_mutex_t *__mutex, unsigned _
 static int my_pthread_mutexattr_setpshared(pthread_mutexattr_t *__attr,
                                            int pshared)
 {
+    if (nvidia_hack)
+        return 0;
     return pthread_mutexattr_setpshared(__attr, pshared);
 }
 
@@ -562,6 +577,9 @@ static int my_pthread_cond_destroy(pthread_cond_t *cond)
 
 static int my_pthread_cond_broadcast(pthread_cond_t *cond)
 {
+    if (nvidia_hack)
+        return 0;
+
     unsigned int value = (*(unsigned int *) cond);
     if (hybris_check_android_shared_cond(value)) {
         LOGD("shared condition with Android, not broadcasting.");
@@ -637,6 +655,9 @@ static int my_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)
 static int my_pthread_cond_timedwait(pthread_cond_t *cond,
                 pthread_mutex_t *mutex, const struct timespec *abstime)
 {
+    if (nvidia_hack)
+        return 0;
+
     /* Both cond and mutex can be statically initialized, check for both */
     unsigned int cvalue = (*(unsigned int *) cond);
     unsigned int mvalue = (*(unsigned int *) mutex);
@@ -1420,6 +1441,14 @@ void *get_hooked_symbol(char *sym)
 {
     struct _hook *ptr = &hooks[0];
     static int counter = -1;
+
+    char *graphics = getenv("GRAPHICS");
+
+    if (graphics == NULL) {
+        nvidia_hack = 0;
+    } else if (strcmp("NVIDIA",graphics) == 0) {
+        nvidia_hack = 1;
+    }
 
     while (ptr->name != NULL)
     {
