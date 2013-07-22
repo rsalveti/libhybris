@@ -123,6 +123,7 @@ AC_SUBST(ANDROID_VERSION, [$android_version])
 
 AC_CONFIG_FILES([
 	Makefile
+	properties/Makefile
 	common/Makefile
 	common/gingerbread/Makefile
 	common/ics/Makefile
@@ -144,6 +145,7 @@ AC_CONFIG_FILES([
 	camera/Makefile
 	media/Makefile
 	include/Makefile
+	utils/Makefile
 	tests/Makefile
 ])
 AM_COND_IF([WANT_WAYLAND], [AC_CONFIG_FILES([egl/platforms/common/wayland-egl.pc])])

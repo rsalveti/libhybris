@@ -17,7 +17,6 @@
  *
  */
 
-#include "properties.h"
 #include "hooks_shm.h"
 
 #define _GNU_SOURCE
@@ -49,6 +48,8 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <syslog.h>
+
+#include <hybris/properties/properties.h>
 
 /* TODO:
 *  - Check if the int arguments at attr_set/get match the ones at Android
