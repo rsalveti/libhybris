@@ -24,6 +24,13 @@
 
 #include <hybris/surface_flinger/surface_flinger_compatibility_layer.h>
 
+#include <media/stagefright/foundation/ADebug.h>
+#include <media/stagefright/DataSource.h>
+#include <ui/DisplayInfo.h>
+#include <gui/ISurfaceComposer.h>
+#include <binder/ProcessState.h>
+#include <gui/SurfaceComposerClient.h>
+
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
@@ -41,11 +48,11 @@ using namespace android;
 
 static float DestWidth = 0.0, DestHeight = 0.0;
 // Actual video dimmensions
-static int Width = 0, Height = 0;
+static int Width = 360, Height = 848;
 
 static GLfloat positionCoordinates[8];
 
-MediaPlayerWrapper *player = NULL;
+MPlayer *mplayer = NULL;
 
 void calculate_position_coordinates()
 {
@@ -127,7 +134,7 @@ ClientWithSurface client_with_surface(bool setup_surface_with_egl)
 		(int) DestWidth,
 		(int) DestHeight,
 		-1, //PIXEL_FORMAT_RGBA_8888,
-		15000,
+		INT_MAX,
 		0.5f,
 		setup_surface_with_egl, // Do not associate surface with egl, will be done by camera HAL
 		"MediaCompatLayerTestSurface"
@@ -267,12 +274,17 @@ struct RenderData
 	GLint matrix_loc;
 };
 
+struct SurfaceVars
+{
+	EGLDisplay display;
+	EGLSurface surface;
+	RenderData *render_data;
+};
+
 static int setup_video_texture(ClientWithSurface *cs, GLuint *preview_texture_id)
 {
 	assert(cs != NULL);
 	assert(preview_texture_id != NULL);
-
-	sf_surface_make_current(cs->surface);
 
 	glGenTextures(1, preview_texture_id);
 	glClearColor(0, 0, 0, 0);
@@ -280,8 +292,6 @@ static int setup_video_texture(ClientWithSurface *cs, GLuint *preview_texture_id
 	glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-	android_media_set_preview_texture(player, *preview_texture_id);
 
 	return 0;
 }
@@ -292,10 +302,9 @@ static void print_gl_error(unsigned int line)
 	printf("GL error: %#04x (line: %d)\n", error, line);
 }
 
-static int update_gl_buffer(RenderData *render_data, EGLDisplay *disp, EGLSurface *surface)
+static int update_gl_buffer(SurfaceVars *sv)
 {
-	assert(disp != NULL);
-	assert(surface != NULL);
+	RenderData *render_data = sv->render_data;
 
 	GLushort indices[] = { 0, 1, 2, 0, 2, 3 };
 
@@ -330,7 +339,11 @@ static int update_gl_buffer(RenderData *render_data, EGLDisplay *disp, EGLSurfac
 			textureCoordinates);
 
 	GLfloat matrix[16];
-	android_media_surface_texture_get_transformation_matrix(player, matrix);
+#if 1
+	android_media_surface_texture_get_transformation_matrix(mplayer, matrix);
+#else
+	mplayer->player()->GetTransformationMatrixForSurfaceTexture(matrix);
+#endif
 
 	glUniformMatrix4fv(render_data->matrix_loc, 1, GL_FALSE, matrix);
 
@@ -338,15 +351,25 @@ static int update_gl_buffer(RenderData *render_data, EGLDisplay *disp, EGLSurfac
 	// Set the sampler texture unit to 0
 	glUniform1i(render_data->sampler_loc, 0);
 	glUniform1i(render_data->matrix_loc, 0);
-	android_media_update_surface_texture(player);
+#if 1
+	android_media_update_surface_texture(mplayer);
+#else
+	mplayer->player()->updateSurfaceTexture();
+#endif
 	glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 	//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);
 	glDisableVertexAttribArray(render_data->position_loc);
 	glDisableVertexAttribArray(render_data->tex_coord_loc);
 
-	eglSwapBuffers(*disp, *surface);
+	eglSwapBuffers(sv->display, sv->surface);
 
 	return 0;
+}
+
+void update_surface(void *context)
+{
+	SurfaceVars *sv = (SurfaceVars *)context;
+	update_gl_buffer(sv);
 }
 
 void set_video_size_cb(int height, int width, void *context)
@@ -354,9 +377,27 @@ void set_video_size_cb(int height, int width, void *context)
 	printf("Video height: %d, width: %d\n", height, width);
 	printf("Video dest height: %f, width: %f\n", DestHeight, DestWidth);
 
-	Height = height;
-	Width = width;
+	Height = width;
+	Width = height;
 }
+
+#if 0
+struct FrameAvailableListener : public android::SurfaceTexture::FrameAvailableListener
+{
+public:
+	FrameAvailableListener()
+	{
+	}
+
+	// From android::SurfaceTexture::FrameAvailableListener
+	void onFrameAvailable()
+	{
+		printf("%s\n", __PRETTY_FUNCTION__);
+		assert(mplayer->player() != NULL);
+		mplayer->player()->updateSurfaceTexture();
+	}
+};
+#endif
 
 int main(int argc, char **argv)
 {
@@ -365,22 +406,25 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
-	player = android_media_new_player();
-	if (player == NULL) {
+	mplayer = android_media_new_player();
+	if (mplayer == NULL) {
 		printf("Problem creating new media player.\n");
 		return EXIT_FAILURE;
 	}
 
 	// Set player event cb for when the video size is known:
-	android_media_set_video_size_cb(player, set_video_size_cb, NULL);
+	android_media_set_video_size_cb(mplayer, set_video_size_cb, NULL);
+	//mplayer->player()->setVideoSizeCb(set_video_size_cb, NULL);
 
 	printf("Setting data source to: %s.\n", argv[1]);
 
-	if (android_media_set_data_source(player, argv[1]) != OK) {
+	//mplayer->player()->setDataSource(argv[1]);
+	if (android_media_set_data_source(mplayer, argv[1]) != OK) {
 		printf("Failed to set data source: %s\n", argv[1]);
 		return EXIT_FAILURE;
 	}
 
+#if 1
 	WindowRenderer renderer(DestWidth, DestHeight);
 
 	printf("Creating EGL surface.\n");
@@ -392,8 +436,9 @@ int main(int argc, char **argv)
 
 	printf("Creating GL texture.\n");
 	GLuint preview_texture_id;
-	EGLDisplay disp = sf_client_get_egl_display(cs.client);
-	EGLSurface surface = sf_surface_get_egl_surface(cs.surface);
+	SurfaceVars *sv = new SurfaceVars;
+	sv->display = sf_client_get_egl_display(cs.client);
+	sv->surface = sf_surface_get_egl_surface(cs.surface);
 
 	sf_surface_make_current(cs.surface);
 	if (setup_video_texture(&cs, &preview_texture_id) != OK) {
@@ -401,17 +446,78 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
-	RenderData render_data;
+	sv->render_data = new RenderData;
+
+	printf("GL id: %d\n", preview_texture_id);
+#if 0
+	// Create a new SurfaceTexture from the texture_id in synchronous mode
+	// (don't wait on all data in the buffer)
+	const bool allow_synchronous_mode = true;
+	sp<SurfaceTexture> surface_texture = new android::SurfaceTexture(
+			preview_texture_id,
+			allow_synchronous_mode);
+	//sp<FrameAvailableListener> frame_listener;
+	//surface_texture->setFrameAvailableListener(frame_listener);
+	mplayer->player()->setSurface(surface_texture);
+#endif
+	android_media_set_preview_texture(mplayer, preview_texture_id);
+	//mplayer->player()->setVideoTextureNeedsUpdateCb(update_surface, sv);
+#else
+	sp<SurfaceComposerClient> composerClient;
+	sp<SurfaceControl> control;
+	composerClient = new SurfaceComposerClient;
+	CHECK_EQ(composerClient->initCheck(), (status_t)OK);
+
+	sp<IBinder> display(SurfaceComposerClient::getBuiltInDisplay(
+				ISurfaceComposer::eDisplayIdMain));
+	DisplayInfo info;
+	SurfaceComposerClient::getDisplayInfo(display, &info);
+	ssize_t displayWidth = info.w;
+	ssize_t displayHeight = info.h;
+
+	ALOGV("display is %ld x %ld\n", displayWidth, displayHeight);
+
+	control = composerClient->createSurface(
+			String8("A Surface"),
+			displayWidth,
+			displayHeight,
+			PIXEL_FORMAT_RGB_565,
+			0);
+
+	CHECK(control != NULL);
+	CHECK(control->isValid());
+
+	SurfaceComposerClient::openGlobalTransaction();
+	CHECK_EQ(control->setLayer(INT_MAX), (status_t)OK);
+	CHECK_EQ(control->show(), (status_t)OK);
+	SurfaceComposerClient::closeGlobalTransaction();
+
+	sp<Surface> surface = control->getSurface();
+	CHECK(surface != NULL);
+
+	mplayer->player->setSurface(surface->getSurfaceTexture());
+#endif
 
 	printf("Starting video playback.\n");
-	android_media_play(player);
+	android_media_play(mplayer);
 
+#if 1
 	printf("Updating gl buffer continuously...\n");
-	while (android_media_is_playing(player)) {
-		update_gl_buffer(&render_data, &disp, &surface);
+	while (android_media_is_playing(mplayer)) {
+		update_gl_buffer(sv);
 	}
 
-	android_media_stop(player);
+#else
+	sleep(10);
+#endif
+
+	android_media_reset(mplayer);
+	//android_media_stop(mplayer);
+
+	delete sv->render_data;
+	delete sv;
+
+	delete mplayer;
 
 	return EXIT_SUCCESS;
 }

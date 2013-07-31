@@ -382,21 +382,30 @@ int android_media_set_data_source(MediaPlayerWrapper *mp, const char* url)
 		return BAD_VALUE;
 	}
 
-	int fd = open(url, O_RDONLY);
-	if (fd < 0) {
-		ALOGE("Failed to open source data at: %s\n", url);
-		return BAD_VALUE;
+	ALOGD("url: %s", url);
+
+	String16 src(url);
+	if (src.startsWith(String16("http://")) == true) {
+		ALOGD("HTTP source URL detected");
+		mp->setDataSource(url, NULL);
+	} else {
+		ALOGD("File source URL detected");
+		int fd = open(url, O_RDONLY);
+		if (fd < 0)
+		{
+			ALOGE("Failed to open source data at: %s\n", url);
+			return BAD_VALUE;
+		}
+
+		mp->setSourceFd(fd);
+
+		struct stat st;
+		stat(url, &st);
+
+		ALOGD("source file length: %lld\n", st.st_size);
+
+		mp->setDataSource(fd, 0, st.st_size);
 	}
-
-	mp->reset();
-	mp->setSourceFd(fd);
-
-	struct stat st;
-	stat(url, &st);
-
-	ALOGD("source file length: %lld\n", st.st_size);
-
-	mp->setDataSource(fd, 0, st.st_size);
 	mp->prepare();
 
 	return OK;
