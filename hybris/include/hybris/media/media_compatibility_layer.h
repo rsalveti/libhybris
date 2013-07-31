@@ -21,8 +21,9 @@
 
 #include <stdint.h>
 #include <unistd.h>
-#include <stdint.h>
 #include <stdbool.h>
+
+#include <GLES2/gl2.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,7 +52,7 @@ extern "C" {
     int android_media_set_data_source(struct MediaPlayerWrapper *mp, const char* url);
     int android_media_set_preview_texture(struct MediaPlayerWrapper *mp, int texture_id);
     void android_media_update_surface_texture(struct MediaPlayerWrapper *mp);
-    void android_media_surface_texture_get_transformation_matrix(struct MediaPlayerWrapper *mp, float*matrix);
+    void android_media_surface_texture_get_transformation_matrix(struct MediaPlayerWrapper *mp, GLfloat*matrix);
     int android_media_play(struct MediaPlayerWrapper *mp);
     int android_media_pause(struct MediaPlayerWrapper *mp);
     int android_media_stop(struct MediaPlayerWrapper *mp);
@@ -68,4 +69,4 @@ extern "C" {
 }
 #endif
 
-#endif // CAMERA_COMPATIBILITY_LAYER_H_
+#endif // MEDIA_COMPATIBILITY_LAYER_H_
