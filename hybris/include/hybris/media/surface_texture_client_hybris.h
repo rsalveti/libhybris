@@ -37,6 +37,7 @@ extern "C" {
 
     typedef void* SurfaceTextureClientHybris;
 
+    //SurfaceTextureClientHybris surface_texture_client_get_instance();
     SurfaceTextureClientHybris surface_texture_client_create(EGLNativeWindowType native_window);
     void surface_texture_client_destroy(SurfaceTextureClientHybris stc);
     void surface_texture_client_ref(SurfaceTextureClientHybris stc);

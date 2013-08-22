@@ -57,6 +57,7 @@ extern "C" {
 #else
     int media_codec_configure(MediaCodecDelegate delegate, MediaFormat format, SurfaceTextureClientHybris stc, uint32_t flags);
 #endif
+    int media_codec_set_surface_texture_client(MediaCodecDelegate delegate, SurfaceTextureClientHybris stc);
 
     int media_codec_queue_csd(MediaCodecDelegate delegate, MediaFormat format);
     int media_codec_start(MediaCodecDelegate delegate);

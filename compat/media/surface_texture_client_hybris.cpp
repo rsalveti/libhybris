@@ -51,15 +51,34 @@ static inline _SurfaceTextureClientHybris *get_internal_stcu(SurfaceTextureClien
     return s;
 }
 
+_SurfaceTextureClientHybris::_SurfaceTextureClientHybris()
+{
+    REPORT_FUNCTION()
+
+    // setBufferCount(5);
+}
+
+_SurfaceTextureClientHybris::_SurfaceTextureClientHybris(const _SurfaceTextureClientHybris &stch)
+    : SurfaceTextureClient::SurfaceTextureClient(),
+      Singleton<_SurfaceTextureClientHybris>::Singleton(),
+      refcount(stch.refcount)
+{
+    REPORT_FUNCTION()
+}
+
 _SurfaceTextureClientHybris::_SurfaceTextureClientHybris(const sp<ISurfaceTexture> &st)
     : SurfaceTextureClient::SurfaceTextureClient(st),
       refcount(1)
 {
-    setBufferCount(5);
+    REPORT_FUNCTION()
+
+    // setBufferCount(5);
 }
 
 _SurfaceTextureClientHybris::~_SurfaceTextureClientHybris()
 {
+    REPORT_FUNCTION()
+
     refcount = 1;
 }
 
@@ -85,11 +104,12 @@ SurfaceTextureClientHybris surface_texture_client_create(EGLNativeWindowType nat
     REPORT_FUNCTION()
 
     sp<Surface> surface = static_cast<Surface*>(native_window);
-    _SurfaceTextureClientHybris *stcu = new _SurfaceTextureClientHybris(surface->getSurfaceTexture());
-    ALOGD("SurfaceTextureClientHybris: %p", stcu);
-    return stcu;
+    _SurfaceTextureClientHybris::getInstance().setISurfaceTexture(surface->getSurfaceTexture());
+    // TODO: Get rid of this return value since it's no longer needed with the singleton
+    return NULL;
 }
 
+// TODO: Get rid of these instance ref/unref/del methods - no longer necessary with the singleton
 void surface_texture_client_destroy(SurfaceTextureClientHybris stc)
 {
     REPORT_FUNCTION()
@@ -142,3 +162,5 @@ void surface_texture_client_set_surface_texture(SurfaceTextureClientHybris stc, 
     sp<Surface> surface = static_cast<Surface*>(native_window);
     s->setISurfaceTexture(surface->getSurfaceTexture());
 }
+
+ANDROID_SINGLETON_STATIC_INSTANCE(_SurfaceTextureClientHybris)

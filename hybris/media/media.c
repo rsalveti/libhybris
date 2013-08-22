@@ -106,6 +106,8 @@ HYBRIS_IMPLEMENT_FUNCTION4(media, int, media_codec_configure,
 HYBRIS_IMPLEMENT_FUNCTION4(media, int, media_codec_configure,
 	MediaCodecDelegate, MediaFormat, SurfaceTextureClientHybris, uint32_t);
 #endif
+HYBRIS_IMPLEMENT_FUNCTION2(media, int, media_codec_set_surface_texture_client,
+	MediaCodecDelegate, SurfaceTextureClientHybris);
 HYBRIS_IMPLEMENT_FUNCTION2(media, int, media_codec_queue_csd,
 	MediaCodecDelegate, MediaFormat);
 HYBRIS_IMPLEMENT_FUNCTION1(media, int, media_codec_start,

@@ -241,7 +241,7 @@ int media_codec_configure(MediaCodecDelegate delegate, MediaFormat format, Surfa
 
     _MediaFormat *format_priv = static_cast<_MediaFormat*>(format);
 #ifndef SIMPLE_PLAYER
-    _SurfaceTextureClientHybris *stcu = static_cast<_SurfaceTextureClientHybris*>(stc);
+    _SurfaceTextureClientHybris *stch = static_cast<_SurfaceTextureClientHybris*>(stc);
 #endif
 
     sp<AMessage> aformat = new AMessage;
@@ -260,9 +260,35 @@ int media_codec_configure(MediaCodecDelegate delegate, MediaFormat format, Surfa
     sp<SurfaceTextureClient> surfaceTextureClient = static_cast<SurfaceTextureClient*>(nativeWindow);
     d->media_codec->configure(aformat, surfaceTextureClient, NULL, flags);
 #else
-    ALOGD("SurfaceTextureClientHybris: %p", stcu);
-    d->media_codec->configure(aformat, stcu, NULL, flags);
+    assert(_SurfaceTextureClientHybris::hasInstance());
+    ALOGD("SurfaceTextureClientHybris: %p", stch);
+    ALOGD("SurfaceTextureClientHybris(singleton): %p", &_SurfaceTextureClientHybris::getInstance());
+    d->media_codec->configure(aformat, &_SurfaceTextureClientHybris::getInstance(), NULL, flags);
 #endif
+
+    return OK;
+}
+
+int media_codec_set_surface_texture_client(MediaCodecDelegate delegate, SurfaceTextureClientHybris stc)
+{
+    REPORT_FUNCTION()
+
+    _MediaCodecDelegate *d = get_internal_delegate(delegate);
+    if (d == NULL)
+        return BAD_VALUE;
+    if (stc == NULL)
+    {
+        ALOGE("stc must not be NULL");
+        return BAD_VALUE;
+    }
+
+    _SurfaceTextureClientHybris *stcu = static_cast<_SurfaceTextureClientHybris*>(stc);
+    status_t err = native_window_api_connect(stcu, NATIVE_WINDOW_API_MEDIA);
+    if (err != OK)
+    {
+        ALOGE("native_window_api_connect returned an error: %s (%d)", strerror(-err), err);
+        return err;
+    }
 
     return OK;
 }

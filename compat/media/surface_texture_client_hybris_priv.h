@@ -16,14 +16,21 @@
  * Authored by: Jim Hodapp <jim.hodapp@canonical.com>
  */
 
+#include <utils/Singleton.h>
 #include <gui/SurfaceTextureClient.h>
 
-struct _SurfaceTextureClientHybris : public android::SurfaceTextureClient
+struct _SurfaceTextureClientHybris : public android::SurfaceTextureClient,
+                                     public android::Singleton<_SurfaceTextureClientHybris>
 {
-public:
-    explicit _SurfaceTextureClientHybris(const android::sp<android::ISurfaceTexture> &st);
+    friend class android::Singleton<_SurfaceTextureClientHybris>;
+
+    _SurfaceTextureClientHybris();
+    _SurfaceTextureClientHybris(const _SurfaceTextureClientHybris &stch);
+    _SurfaceTextureClientHybris(const android::sp<android::ISurfaceTexture> &st);
     ~_SurfaceTextureClientHybris();
 
+
+public:
     int dequeueBuffer(ANativeWindowBuffer** buffer, int* fenceFd);
     int queueBuffer(ANativeWindowBuffer* buffer, int fenceFd);
     void setISurfaceTexture(const android::sp<android::ISurfaceTexture>& surface_texture);
