@@ -33,10 +33,37 @@
 #include <binder/ProcessState.h>
 #include <gui/SurfaceTexture.h>
 
+#include <ui/GraphicBuffer.h>
+
 #include <utils/Log.h>
 
 #define REPORT_FUNCTION() ALOGV("%s \n", __PRETTY_FUNCTION__)
 
+namespace android
+{
+NativeBufferAlloc::NativeBufferAlloc() {
+}
+
+NativeBufferAlloc::~NativeBufferAlloc() {
+}
+
+sp<GraphicBuffer> NativeBufferAlloc::createGraphicBuffer(uint32_t w, uint32_t h,
+			PixelFormat format, uint32_t usage, status_t* error) {
+	sp<GraphicBuffer> graphicBuffer(new GraphicBuffer(w, h, format, usage));
+	status_t err = graphicBuffer->initCheck();
+	*error = err;
+	if (err != 0 || graphicBuffer->handle == 0) {
+		if (err == NO_MEMORY) {
+			GraphicBuffer::dumpAllocationsToSystemLog();
+		}
+		ALOGI("GraphicBufferAlloc::createGraphicBuffer(w=%d, h=%d) "
+				"failed (%s), handle=%p",
+				w, h, strerror(-err), graphicBuffer->handle);
+		return 0;
+	}
+	return graphicBuffer;
+}
+}
 struct FrameAvailableListener : public android::SurfaceTexture::FrameAvailableListener
 {
 	public:
@@ -420,12 +447,23 @@ int android_media_set_preview_texture(MediaPlayerWrapper *mp, int texture_id)
 		return BAD_VALUE;
 	}
 
+	android::sp<android::NativeBufferAlloc> native_alloc(
+			new android::NativeBufferAlloc()
+			);
+
+	android::sp<android::BufferQueue> buffer_queue(
+			new android::BufferQueue(false, NULL, native_alloc)
+			);
+
 	static const bool allow_synchronous_mode = true;
 	// Create a new SurfaceTexture from the texture_id in synchronous mode (don't wait on all data in the buffer)
 	mp->setVideoSurfaceTexture(android::sp<android::SurfaceTexture>(
 				new android::SurfaceTexture(
 					texture_id,
-					allow_synchronous_mode)));
+					allow_synchronous_mode,
+					GL_TEXTURE_EXTERNAL_OES,
+					true,
+					buffer_queue)));
 
 	return OK;
 }
