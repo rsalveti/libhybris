@@ -29,6 +29,9 @@
 extern "C" {
 #endif
 
+    // Common compat calls
+    int media_compat_check_availability();
+
     // Callback types
     typedef void (*on_msg_set_video_size)(int height, int width, void *context);
     typedef void (*on_video_texture_needs_update)(void *context);

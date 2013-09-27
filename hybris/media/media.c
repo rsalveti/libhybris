@@ -40,6 +40,13 @@
 
 HYBRIS_LIBRARY_INITIALIZE(media, COMPAT_LIBRARY_PATH);
 
+int media_compat_check_availability()
+{
+	/* Both are defined via HYBRIS_LIBRARY_INITIALIZE */
+	hybris_media_initialize();
+	return media_handle ? 1 : 0;
+}
+
 HYBRIS_IMPLEMENT_FUNCTION0(media, struct MediaPlayerWrapper*,
 	android_media_new_player);
 HYBRIS_IMPLEMENT_VOID_FUNCTION1(media, android_media_update_surface_texture,
