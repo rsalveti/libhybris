@@ -131,9 +131,9 @@ void surface_texture_client_create_by_id(unsigned int texture_id)
     set_surface(_SurfaceTextureClientHybris::getInstance().surface_texture);
 }
 
-void surface_texture_client_get_transformation_matrix(GLfloat *matrix)
+void surface_texture_client_get_transformation_matrix(float *matrix)
 {
-    _SurfaceTextureClientHybris::getInstance().surface_texture->getTransformMatrix(matrix);
+    _SurfaceTextureClientHybris::getInstance().surface_texture->getTransformMatrix(static_cast<GLfloat*>(matrix));
 }
 
 void surface_texture_client_update_texture()
