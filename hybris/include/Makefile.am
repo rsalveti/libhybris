@@ -86,6 +86,10 @@ camerainclude_HEADERS = \
 	hybris/camera/camera_compatibility_layer_configuration_translator.h \
 	hybris/camera/camera_compatibility_layer.h
 
+mediaincludedir = $(includedir)/hybris/media
+mediainclude_HEADERS = \
+	hybris/media/media_compatibility_layer.h
+
 android/version.h: android/version.h.in
 	@sed -e "s|\@android_version\@|$(ANDROID_VERSION)|" $<> $@
 
