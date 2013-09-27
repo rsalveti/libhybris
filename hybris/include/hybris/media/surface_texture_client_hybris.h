@@ -23,6 +23,13 @@
 #include <unistd.h>
 
 #include <EGL/egl.h>
+#include <GLES2/gl2.h>
+
+#ifdef __ARM_PCS_VFP
+#define FP_ATTRIB __attribute__((pcs("aapcs")))
+#else
+#define FP_ATTRIB
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,6 +46,9 @@ extern "C" {
 
     //SurfaceTextureClientHybris surface_texture_client_get_instance();
     SurfaceTextureClientHybris surface_texture_client_create(EGLNativeWindowType native_window);
+    void surface_texture_client_create_by_id(unsigned int texture_id);
+    void surface_texture_client_get_transformation_matrix(GLfloat *matrix) FP_ATTRIB;
+    void surface_texture_client_update_texture();
     void surface_texture_client_destroy(SurfaceTextureClientHybris stc);
     void surface_texture_client_ref(SurfaceTextureClientHybris stc);
     void surface_texture_client_unref(SurfaceTextureClientHybris stc);

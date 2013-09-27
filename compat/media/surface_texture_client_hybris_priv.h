@@ -36,5 +36,6 @@ public:
     void setISurfaceTexture(const android::sp<android::ISurfaceTexture>& surface_texture);
 
     unsigned int refcount;
+    android::sp<android::SurfaceTexture> surface_texture;
 };
 

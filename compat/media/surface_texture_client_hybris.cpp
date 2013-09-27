@@ -109,6 +109,38 @@ SurfaceTextureClientHybris surface_texture_client_create(EGLNativeWindowType nat
     return NULL;
 }
 
+static inline void set_surface(const sp<SurfaceTexture> &surface_texture)
+{
+    REPORT_FUNCTION()
+
+    _SurfaceTextureClientHybris::getInstance().setISurfaceTexture(surface_texture->getBufferQueue());
+}
+
+void surface_texture_client_create_by_id(unsigned int texture_id)
+{
+    REPORT_FUNCTION()
+
+    if (texture_id == 0)
+    {
+        ALOGE("Cannot create new SurfaceTextureClientHybris, texture id must be > 0.");
+        return;
+    }
+
+    const bool allow_synchronous_mode = true;
+    _SurfaceTextureClientHybris::getInstance().surface_texture = new SurfaceTexture(texture_id, allow_synchronous_mode);
+    set_surface(_SurfaceTextureClientHybris::getInstance().surface_texture);
+}
+
+void surface_texture_client_get_transformation_matrix(GLfloat *matrix)
+{
+    _SurfaceTextureClientHybris::getInstance().surface_texture->getTransformMatrix(matrix);
+}
+
+void surface_texture_client_update_texture()
+{
+    _SurfaceTextureClientHybris::getInstance().surface_texture->updateTexImage();
+}
+
 // TODO: Get rid of these instance ref/unref/del methods - no longer necessary with the singleton
 void surface_texture_client_destroy(SurfaceTextureClientHybris stc)
 {

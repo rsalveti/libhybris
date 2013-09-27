@@ -205,6 +205,11 @@ HYBRIS_IMPLEMENT_FUNCTION1(media, int32_t, media_format_get_crop_bottom,
 // SurfaceTextureClientHybris
 HYBRIS_IMPLEMENT_FUNCTION1(media, SurfaceTextureClientHybris,
 	surface_texture_client_create, EGLNativeWindowType);
+HYBRIS_IMPLEMENT_VOID_FUNCTION1(media, surface_texture_client_create_by_id,
+	unsigned int);
+HYBRIS_IMPLEMENT_VOID_FUNCTION1(media, surface_texture_client_get_transformation_matrix,
+	GLfloat*);
+HYBRIS_IMPLEMENT_VOID_FUNCTION0(media, surface_texture_client_update_texture);
 HYBRIS_IMPLEMENT_VOID_FUNCTION1(media, surface_texture_client_destroy,
 	SurfaceTextureClientHybris);
 HYBRIS_IMPLEMENT_VOID_FUNCTION1(media, surface_texture_client_ref,
