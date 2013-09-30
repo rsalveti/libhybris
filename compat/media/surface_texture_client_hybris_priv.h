@@ -29,6 +29,8 @@ struct _SurfaceTextureClientHybris : public android::SurfaceTextureClient,
     _SurfaceTextureClientHybris(const android::sp<android::ISurfaceTexture> &st);
     ~_SurfaceTextureClientHybris();
 
+    /** Has a texture id or EGLNativeWindowType been passed in, meaning rendering will function? **/
+    bool isReady() const;
 
 public:
     int dequeueBuffer(ANativeWindowBuffer** buffer, int* fenceFd);
@@ -37,5 +39,8 @@ public:
 
     unsigned int refcount;
     android::sp<android::SurfaceTexture> surface_texture;
+
+private:
+    bool ready;
 };
 

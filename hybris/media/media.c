@@ -214,6 +214,8 @@ HYBRIS_IMPLEMENT_FUNCTION1(media, SurfaceTextureClientHybris,
 	surface_texture_client_create, EGLNativeWindowType);
 HYBRIS_IMPLEMENT_VOID_FUNCTION1(media, surface_texture_client_create_by_id,
 	unsigned int);
+HYBRIS_IMPLEMENT_FUNCTION0(media, bool,
+	surface_texture_client_is_ready_for_rendering);
 HYBRIS_IMPLEMENT_VOID_FUNCTION1(media, surface_texture_client_get_transformation_matrix,
 	GLfloat*);
 HYBRIS_IMPLEMENT_VOID_FUNCTION0(media, surface_texture_client_update_texture);

@@ -52,34 +52,40 @@ static inline _SurfaceTextureClientHybris *get_internal_stcu(SurfaceTextureClien
 }
 
 _SurfaceTextureClientHybris::_SurfaceTextureClientHybris()
+    : refcount(1),
+      ready(false)
 {
     REPORT_FUNCTION()
-
-    // setBufferCount(5);
 }
 
 _SurfaceTextureClientHybris::_SurfaceTextureClientHybris(const _SurfaceTextureClientHybris &stch)
     : SurfaceTextureClient::SurfaceTextureClient(),
       Singleton<_SurfaceTextureClientHybris>::Singleton(),
-      refcount(stch.refcount)
+      refcount(stch.refcount),
+      ready(0)
 {
     REPORT_FUNCTION()
 }
 
 _SurfaceTextureClientHybris::_SurfaceTextureClientHybris(const sp<ISurfaceTexture> &st)
     : SurfaceTextureClient::SurfaceTextureClient(st),
-      refcount(1)
+      refcount(1),
+      ready(false)
 {
     REPORT_FUNCTION()
-
-    // setBufferCount(5);
 }
 
 _SurfaceTextureClientHybris::~_SurfaceTextureClientHybris()
 {
     REPORT_FUNCTION()
 
+    ready = false;
     refcount = 1;
+}
+
+bool _SurfaceTextureClientHybris::isReady() const
+{
+    return ready;
 }
 
 int _SurfaceTextureClientHybris::dequeueBuffer(ANativeWindowBuffer** buffer, int* fenceFd)
@@ -95,6 +101,9 @@ int _SurfaceTextureClientHybris::queueBuffer(ANativeWindowBuffer* buffer, int fe
 void _SurfaceTextureClientHybris::setISurfaceTexture(const sp<ISurfaceTexture>& surface_texture)
 {
     SurfaceTextureClient::setISurfaceTexture(surface_texture);
+
+    // Ready for rendering
+    ready = true;
 }
 
 // ----- End _SurfaceTextureClientHybris API ----- //
@@ -105,6 +114,7 @@ SurfaceTextureClientHybris surface_texture_client_create(EGLNativeWindowType nat
 
     sp<Surface> surface = static_cast<Surface*>(native_window);
     _SurfaceTextureClientHybris::getInstance().setISurfaceTexture(surface->getSurfaceTexture());
+
     // TODO: Get rid of this return value since it's no longer needed with the singleton
     return NULL;
 }
@@ -126,9 +136,23 @@ void surface_texture_client_create_by_id(unsigned int texture_id)
         return;
     }
 
+    // Use a new native buffer allocator vs the default one, which means it'll use the proper one
+    // that will allow rendering to work with Mir
+    sp<NativeBufferAlloc> native_alloc(new NativeBufferAlloc());
+    sp<BufferQueue> buffer_queue(new BufferQueue(false, NULL, native_alloc));
+
+    if (_SurfaceTextureClientHybris::getInstance().surface_texture != NULL)
+      _SurfaceTextureClientHybris::getInstance().surface_texture.clear();
+
     const bool allow_synchronous_mode = true;
-    _SurfaceTextureClientHybris::getInstance().surface_texture = new SurfaceTexture(texture_id, allow_synchronous_mode);
+    _SurfaceTextureClientHybris::getInstance().surface_texture = new SurfaceTexture(texture_id, allow_synchronous_mode,
+            GL_TEXTURE_EXTERNAL_OES, true, buffer_queue);
     set_surface(_SurfaceTextureClientHybris::getInstance().surface_texture);
+}
+
+bool surface_texture_client_is_ready_for_rendering()
+{
+    return _SurfaceTextureClientHybris::getInstance().isReady();
 }
 
 void surface_texture_client_get_transformation_matrix(float *matrix)

@@ -255,15 +255,27 @@ int media_codec_configure(MediaCodecDelegate delegate, MediaFormat format, Surfa
 
     ALOGD("Format: %s", aformat->debugString().c_str());
 
-    // TODO: Don't just pass NULL for the security when DRM is needed
 #ifdef SIMPLE_PLAYER
     sp<SurfaceTextureClient> surfaceTextureClient = static_cast<SurfaceTextureClient*>(nativeWindow);
+    // TODO: Don't just pass NULL for the security when DRM is needed
     d->media_codec->configure(aformat, surfaceTextureClient, NULL, flags);
 #else
     assert(_SurfaceTextureClientHybris::hasInstance());
-    ALOGD("SurfaceTextureClientHybris: %p", stch);
     ALOGD("SurfaceTextureClientHybris(singleton): %p", &_SurfaceTextureClientHybris::getInstance());
-    d->media_codec->configure(aformat, &_SurfaceTextureClientHybris::getInstance(), NULL, flags);
+
+    // Make sure we're ready to configure the codec and the SurfaceTextureClient together
+    if (_SurfaceTextureClientHybris::getInstance().isReady())
+    {
+        // TODO: Don't just pass NULL for the security when DRM is needed
+        d->media_codec->configure(aformat, &_SurfaceTextureClientHybris::getInstance(), NULL, flags);
+    }
+    else
+    {
+        // This scenario is for hardware video decoding, but software rendering, therefore there's
+        // no need to pass a valid SurfaceTextureClient instance to configure()
+        d->media_codec->configure(aformat, NULL, NULL, flags);
+    }
+
 #endif
 
     return OK;
@@ -655,15 +667,17 @@ int media_codec_release_output_buffer(MediaCodecDelegate delegate, size_t index)
     status_t ret = OK;
 
     // Make sure that all output buffers are released available at all times
-    while (!(d->available_output_buffer_indices.empty()))
+    while (d->available_output_buffer_indices.size() > 0)
     {
         size_t idx = *(d->available_output_buffer_indices.begin());
 
         ALOGD("Rendering and releasing buffer at index: %d", idx);
 
         ret = d->media_codec->renderOutputBufferAndRelease(idx);
-        if (ret != OK)
+        if (ret != OK) {
             ALOGE("Failed to release output buffer (ret: %d, index: %d)", ret, idx);
+            break;
+        }
 
         d->available_output_buffer_indices.erase(d->available_output_buffer_indices.begin());
     }
