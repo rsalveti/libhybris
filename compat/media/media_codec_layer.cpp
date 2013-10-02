@@ -404,16 +404,13 @@ size_t media_codec_get_input_buffers_size(MediaCodecDelegate delegate)
     if (d == NULL)
         return BAD_VALUE;
 
-    if (d->input_buffers.size() == 0)
+    status_t ret = d->media_codec->getInputBuffers(&d->input_buffers);
+    if (ret != OK)
     {
-        status_t ret = d->media_codec->getInputBuffers(&d->input_buffers);
-        if (ret != OK)
-        {
-            ALOGE("Failed to get input buffers size");
-            return 0;
-        }
-        ALOGD("Got %d input buffers", d->input_buffers.size());
+        ALOGE("Failed to get input buffers size");
+        return 0;
     }
+    ALOGD("Got %d input buffers", d->input_buffers.size());
 
     return d->input_buffers.size();
 }
@@ -478,16 +475,13 @@ size_t media_codec_get_output_buffers_size(MediaCodecDelegate delegate)
     if (d == NULL)
         return BAD_VALUE;
 
-    if (d->output_buffers.size() == 0)
+    status_t ret = d->media_codec->getOutputBuffers(&d->output_buffers);
+    if (ret != OK)
     {
-        status_t ret = d->media_codec->getOutputBuffers(&d->output_buffers);
-        if (ret != OK)
-        {
-            ALOGE("Failed to get output buffers size");
-            return 0;
-        }
-        ALOGD("Got %d output buffers", d->output_buffers.size());
+        ALOGE("Failed to get output buffers size");
+        return 0;
     }
+    ALOGD("Got %d output buffers", d->output_buffers.size());
 
     return d->output_buffers.size();
 }
