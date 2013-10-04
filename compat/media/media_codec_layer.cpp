@@ -663,13 +663,17 @@ int media_codec_release_output_buffer(MediaCodecDelegate delegate, size_t index)
     // Make sure that all output buffers are released available at all times
     while (d->available_output_buffer_indices.size() > 0)
     {
-        size_t idx = *(d->available_output_buffer_indices.begin());
+        const size_t idx = *(d->available_output_buffer_indices.begin());
 
         ALOGD("Rendering and releasing buffer at index: %d", idx);
 
         ret = d->media_codec->renderOutputBufferAndRelease(idx);
         if (ret != OK) {
             ALOGE("Failed to release output buffer (ret: %d, index: %d)", ret, idx);
+            if (ret == -EACCES) {
+                ALOGD("Releasing all of the output buffers from the available indices list");
+                d->available_output_buffer_indices.clear();
+            }
             break;
         }
 
