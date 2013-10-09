@@ -60,7 +60,8 @@ hardwareinclude_HEADERS = \
 	android/hardware/gralloc.h \
 	android/hardware/hardware.h \
 	android/hardware/sensors.h \
-	android/hardware/lights.h
+	android/hardware/lights.h \
+	android/hardware/power.h
 
 androidlinuxincludedir = $(includedir)/android/linux
 androidlinuxinclude_HEADERS = \
