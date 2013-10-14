@@ -106,6 +106,16 @@ void _SurfaceTextureClientHybris::setISurfaceTexture(const sp<ISurfaceTexture>& 
     ready = true;
 }
 
+void _SurfaceTextureClientHybris::setHardwareRendering(bool do_hardware_rendering)
+{
+    hardware_rendering = do_hardware_rendering;
+}
+
+bool _SurfaceTextureClientHybris::hardwareRendering()
+{
+  return hardware_rendering;
+}
+
 // ----- End _SurfaceTextureClientHybris API ----- //
 
 SurfaceTextureClientHybris surface_texture_client_create(EGLNativeWindowType native_window)
@@ -150,9 +160,14 @@ void surface_texture_client_create_by_id(unsigned int texture_id)
     set_surface(_SurfaceTextureClientHybris::getInstance().surface_texture);
 }
 
-bool surface_texture_client_is_ready_for_rendering()
+uint8_t surface_texture_client_is_ready_for_rendering()
 {
-    return _SurfaceTextureClientHybris::getInstance().isReady();
+    return static_cast<uint8_t>(_SurfaceTextureClientHybris::getInstance().isReady());
+}
+
+void surface_texture_client_set_hardware_rendering(uint8_t hardware_rendering)
+{
+    _SurfaceTextureClientHybris::getInstance().setHardwareRendering(static_cast<bool>(hardware_rendering));
 }
 
 void surface_texture_client_get_transformation_matrix(float *matrix)

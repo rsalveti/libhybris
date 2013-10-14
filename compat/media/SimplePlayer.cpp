@@ -31,6 +31,8 @@
 #include <media/stagefright/NativeWindowWrapper.h>
 #include <media/stagefright/NuMediaExtractor.h>
 
+#define USE_MEDIA_CODEC_LAYER
+
 namespace android {
 
 SimplePlayer::SimplePlayer()
@@ -301,7 +303,9 @@ status_t SimplePlayer::onPrepare() {
         int32_t width = 0, height = 0, maxInputSize = 0;
         int64_t durationUs = 0;
         sp<ABuffer> csd0, csd1;
+#ifdef USE_MEDIA_CODEC_LAYER
         MediaFormat mformat;
+#endif
         CHECK(format->findString("mime", &mime));
 
         if (!haveAudio && !strncasecmp(mime.c_str(), "audio/", 6)) {
@@ -316,9 +320,11 @@ status_t SimplePlayer::onPrepare() {
             CHECK(format->findInt32("max-input-size", &maxInputSize));
             CHECK(format->findBuffer("csd-0", &csd0));
             CHECK(format->findBuffer("csd-1", &csd1));
+#ifdef USE_MEDIA_CODEC_LAYER
             mformat = media_format_create_video_format(mime.c_str(), width, height, durationUs, maxInputSize);
             media_format_set_byte_buffer(mformat, "csd-0", csd0->data(), csd0->size());
             media_format_set_byte_buffer(mformat, "csd-1", csd1->data(), csd1->size());
+#endif
         } else {
             continue;
         }
@@ -331,21 +337,19 @@ status_t SimplePlayer::onPrepare() {
                     mStateByTrackIndex.add(i, CodecState()));
 
         state->mNumFramesWritten = 0;
-#if 1
+#ifdef USE_MEDIA_CODEC_LAYER
         state->mCodecDelegate = media_codec_create_by_codec_type(mime.c_str());
         state->mCodec = media_codec_get(state->mCodecDelegate);
+        CHECK(state->mCodecDelegate != NULL);
 #else
         state->mCodec = MediaCodec::CreateByType(
                 mCodecLooper, mime.c_str(), false /* encoder */);
 #endif
 
-        CHECK(state->mCodecDelegate != NULL);
         CHECK(state->mCodec != NULL);
 
-#if 1
+#ifdef USE_MEDIA_CODEC_LAYER
         err = media_codec_configure(state->mCodecDelegate, mformat, mNativeWindow->getSurfaceTextureClient().get(), 0);
-        //err = media_codec_configure(state->mCodecDelegate, mformat, 0);
-        //err = media_codec_configure(state->mCodecDelegate, mformat, NULL, 0);
 #else
         err = state->mCodec->configure(
                 format,
@@ -369,13 +373,14 @@ status_t SimplePlayer::onPrepare() {
     for (size_t i = 0; i < mStateByTrackIndex.size(); ++i) {
         CodecState *state = &mStateByTrackIndex.editValueAt(i);
 
+#ifdef USE_MEDIA_CODEC_LAYER
         status_t err = media_codec_start(state->mCodecDelegate);
-#if 0
+#else
         status_t err = state->mCodec->start();
 #endif
         CHECK_EQ(err, (status_t)OK);
 
-#if 1
+#ifdef USE_MEDIA_CODEC_LAYER
         size_t nInputBuffers = media_codec_get_input_buffers_size(state->mCodecDelegate);
         ALOGD("nInputBuffers: %u", nInputBuffers);
         for (size_t i=0; i<nInputBuffers; i++)
@@ -399,7 +404,7 @@ status_t SimplePlayer::onPrepare() {
             const sp<ABuffer> &srcBuffer = state->mCSD.itemAt(j);
 
             size_t index;
-#if 1
+#ifdef USE_MEDIA_CODEC_LAYER
             err = media_codec_dequeue_input_buffer(state->mCodecDelegate, &index, -1ll);
 #else
             err = state->mCodec->dequeueInputBuffer(&index, -1ll);
@@ -412,7 +417,7 @@ status_t SimplePlayer::onPrepare() {
             dstBuffer->setRange(0, srcBuffer->size());
             memcpy(dstBuffer->data(), srcBuffer->data(), srcBuffer->size());
 
-#if 1
+#ifdef USE_MEDIA_CODEC_LAYER
             MediaCodecBufferInfo bufInfo;
             bufInfo.index = index;
             bufInfo.offset = 0;
@@ -487,7 +492,7 @@ status_t SimplePlayer::onDoMoreStuff() {
         status_t err;
         do {
             size_t index;
-#if 1
+#ifdef USE_MEDIA_CODEC_LAYER
             err = media_codec_dequeue_input_buffer(state->mCodecDelegate, &index, 0ll);
 #else
             err = state->mCodec->dequeueInputBuffer(&index);
@@ -505,7 +510,7 @@ status_t SimplePlayer::onDoMoreStuff() {
         } while (err == OK);
 
         do {
-#if 1
+#ifdef USE_MEDIA_CODEC_LAYER
             BufferInfo info;
             MediaCodecBufferInfo bufInfo;
             err = media_codec_dequeue_output_buffer(
@@ -576,7 +581,7 @@ status_t SimplePlayer::onDoMoreStuff() {
             int64_t timeUs;
             CHECK_EQ(mExtractor->getSampleTime(&timeUs), (status_t)OK);
 
-#if 1
+#ifdef USE_MEDIA_CODEC_LAYER
             MediaCodecBufferInfo bufInfo;
             bufInfo.index = index;
             bufInfo.offset = dstBuffer->offset();
@@ -640,7 +645,7 @@ status_t SimplePlayer::onDoMoreStuff() {
                     }
 
                     if (release) {
-#if 1
+#ifdef USE_MEDIA_CODEC_LAYER
                         ALOGD("Rendering output buffer index %d and releasing", info->mIndex);
                         state->mCodec->renderOutputBufferAndRelease(
                                 info->mIndex);

@@ -143,8 +143,8 @@ HYBRIS_IMPLEMENT_FUNCTION2(media, int, media_codec_queue_input_buffer,
 	MediaCodecDelegate, const MediaCodecBufferInfo*);
 HYBRIS_IMPLEMENT_FUNCTION3(media, int, media_codec_dequeue_input_buffer,
 	MediaCodecDelegate, size_t*, int64_t);
-HYBRIS_IMPLEMENT_FUNCTION2(media, int, media_codec_release_output_buffer,
-	MediaCodecDelegate, size_t);
+HYBRIS_IMPLEMENT_FUNCTION3(media, int, media_codec_release_output_buffer,
+	MediaCodecDelegate, size_t, uint8_t);
 HYBRIS_IMPLEMENT_FUNCTION1(media, MediaFormat, media_codec_get_output_format,
 	MediaCodecDelegate);
 
@@ -214,8 +214,10 @@ HYBRIS_IMPLEMENT_FUNCTION1(media, SurfaceTextureClientHybris,
 	surface_texture_client_create, EGLNativeWindowType);
 HYBRIS_IMPLEMENT_VOID_FUNCTION1(media, surface_texture_client_create_by_id,
 	unsigned int);
-HYBRIS_IMPLEMENT_FUNCTION0(media, bool,
+HYBRIS_IMPLEMENT_FUNCTION0(media, uint8_t,
 	surface_texture_client_is_ready_for_rendering);
+HYBRIS_IMPLEMENT_VOID_FUNCTION1(media, surface_texture_client_set_hardware_rendering,
+    uint8_t);
 HYBRIS_IMPLEMENT_VOID_FUNCTION1(media, surface_texture_client_get_transformation_matrix,
 	GLfloat*);
 HYBRIS_IMPLEMENT_VOID_FUNCTION0(media, surface_texture_client_update_texture);

@@ -84,7 +84,7 @@ extern "C" {
     int media_codec_dequeue_output_buffer(MediaCodecDelegate delegate, MediaCodecBufferInfo *info, int64_t timeout_us);
     int media_codec_queue_input_buffer(MediaCodecDelegate delegate, const MediaCodecBufferInfo *info);
     int media_codec_dequeue_input_buffer(MediaCodecDelegate delegate, size_t *index, int64_t timeout_us);
-    int media_codec_release_output_buffer(MediaCodecDelegate delegate, size_t index);
+    int media_codec_release_output_buffer(MediaCodecDelegate delegate, size_t index, uint8_t render);
 
     MediaFormat media_codec_get_output_format(MediaCodecDelegate delegate);
 

@@ -21,7 +21,6 @@
 
 #include <stdint.h>
 #include <unistd.h>
-#include <stdbool.h>
 
 #include <EGL/egl.h>
 
@@ -47,7 +46,8 @@ extern "C" {
     //SurfaceTextureClientHybris surface_texture_client_get_instance();
     SurfaceTextureClientHybris surface_texture_client_create(EGLNativeWindowType native_window);
     void surface_texture_client_create_by_id(unsigned int texture_id);
-    bool surface_texture_client_is_ready_for_rendering();
+    uint8_t surface_texture_client_is_ready_for_rendering();
+    void surface_texture_client_set_hardware_rendering(uint8_t hardware_rendering);
     void surface_texture_client_get_transformation_matrix(float *matrix) FP_ATTRIB;
     void surface_texture_client_update_texture();
     void surface_texture_client_destroy(SurfaceTextureClientHybris stc);

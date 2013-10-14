@@ -36,11 +36,14 @@ public:
     int dequeueBuffer(ANativeWindowBuffer** buffer, int* fenceFd);
     int queueBuffer(ANativeWindowBuffer* buffer, int fenceFd);
     void setISurfaceTexture(const android::sp<android::ISurfaceTexture>& surface_texture);
+    void setHardwareRendering(bool do_hardware_rendering);
+    bool hardwareRendering();
 
     unsigned int refcount;
     android::sp<android::SurfaceTexture> surface_texture;
 
 private:
     bool ready;
+    bool hardware_rendering;
 };
 

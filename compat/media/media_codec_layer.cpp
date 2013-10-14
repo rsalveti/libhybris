@@ -69,14 +69,19 @@ public:
 
     Vector<sp<ABuffer> > input_buffers;
     Vector<sp<ABuffer> > output_buffers;
-    List<size_t> available_output_buffer_indices;
+    List<MediaCodecBufferInfo> available_output_buffer_infos;
+    List<size_t> available_input_buffer_indices;
+    bool output_format_changed;
+    bool hardware_rendering;
 
     void *context;
     unsigned int refcount;
 };
 
 _MediaCodecDelegate::_MediaCodecDelegate(void *context)
-    : context(context),
+    : output_format_changed(false),
+      hardware_rendering(false),
+      context(context),
       refcount(1)
 {
     REPORT_FUNCTION()
@@ -264,13 +269,15 @@ int media_codec_configure(MediaCodecDelegate delegate, MediaFormat format, Surfa
     ALOGD("SurfaceTextureClientHybris(singleton): %p", &_SurfaceTextureClientHybris::getInstance());
 
     // Make sure we're ready to configure the codec and the SurfaceTextureClient together
-    if (_SurfaceTextureClientHybris::getInstance().isReady())
+    if (_SurfaceTextureClientHybris::getInstance().hardwareRendering() && _SurfaceTextureClientHybris::getInstance().isReady())
     {
+        ALOGD("Doing hardware decoding with hardware rendering");
         // TODO: Don't just pass NULL for the security when DRM is needed
         d->media_codec->configure(aformat, &_SurfaceTextureClientHybris::getInstance(), NULL, flags);
     }
     else
     {
+        ALOGD("Doing hardware decoding path with software rendering");
         // This scenario is for hardware video decoding, but software rendering, therefore there's
         // no need to pass a valid SurfaceTextureClient instance to configure()
         d->media_codec->configure(aformat, NULL, NULL, flags);
@@ -494,14 +501,11 @@ uint8_t *media_codec_get_nth_output_buffer(MediaCodecDelegate delegate, size_t n
     if (d == NULL)
         return NULL;
 
-    if (d->output_buffers.size() == 0)
+    status_t ret = d->media_codec->getOutputBuffers(&d->output_buffers);
+    if (ret != OK)
     {
-        status_t ret = d->media_codec->getOutputBuffers(&d->output_buffers);
-        if (ret != OK)
-        {
-            ALOGE("Failed to get output buffers");
-            return NULL;
-        }
+        ALOGE("Failed to get output buffers");
+        return NULL;
     }
 
     if (n > d->output_buffers.size())
@@ -572,11 +576,9 @@ int media_codec_dequeue_output_buffer(MediaCodecDelegate delegate, MediaCodecBuf
     else if (ret & ~(INFO_FORMAT_CHANGED - 10))
     {
         ALOGD("Output buffer format changed (ret: %d)", ret);
+        d->output_format_changed = true;
         return -2;
     }
-
-    // Keep track of the used output buffer
-    d->available_output_buffer_indices.push_back(info->index);
 
     ALOGD("Dequeued output buffer:\n-----------------------");
     ALOGD("index: %u", info->index);
@@ -584,6 +586,9 @@ int media_codec_dequeue_output_buffer(MediaCodecDelegate delegate, MediaCodecBuf
     ALOGD("size: %d", info->size);
     ALOGD("presentation_time_us: %lld", info->presentation_time_us);
     ALOGD("flags: %d", info->flags);
+
+    // Keep track of the used output buffer info
+    d->available_output_buffer_infos.push_back(*info);
 
     return OK;
 }
@@ -602,18 +607,28 @@ int media_codec_queue_input_buffer(MediaCodecDelegate delegate, const MediaCodec
     if (d == NULL)
         return BAD_VALUE;
 
-    ALOGD("info->index: %d", info->index);
+    // Make sure that there is at least one dequeued input buffer available
+    if (d->available_input_buffer_indices.empty())
+    {
+        ALOGE("Input buffer index %d has not been dequeued, cannot queue input buffer", info->index);
+        return BAD_VALUE;
+    }
+
+    const size_t index = *d->available_input_buffer_indices.begin();
+    d->available_input_buffer_indices.erase(d->available_input_buffer_indices.begin());
+
+    ALOGD("info->index: %d", index);
     ALOGD("info->offset: %d", info->offset);
     ALOGD("info->size: %d", info->size);
     ALOGD("info->presentation_time_us: %lld", info->presentation_time_us);
     ALOGD("info->flags: %d", info->flags);
 
     AString err_msg;
-    status_t ret = d->media_codec->queueInputBuffer(info->index, info->offset, info->size,
+    status_t ret = d->media_codec->queueInputBuffer(index, info->offset, info->size,
             info->presentation_time_us, info->flags, &err_msg);
     if (ret != OK)
     {
-        ALOGE("Failed to queue input buffer (err: %d, index: %d)", ret, info->index);
+        ALOGE("Failed to queue input buffer (err: %d, index: %d)", ret, index);
         ALOGE("Detailed error message: %s", err_msg.c_str());
     }
 
@@ -643,6 +658,7 @@ int media_codec_dequeue_input_buffer(MediaCodecDelegate delegate, size_t *index,
     else if (ret == OK)
     {
         ALOGD("Dequeued input buffer (index: %d)", *index);
+        d->available_input_buffer_indices.push_back(*index);
     }
     else
         ALOGE("Failed to dequeue input buffer (err: %d, index: %d)", ret, *index);
@@ -650,7 +666,7 @@ int media_codec_dequeue_input_buffer(MediaCodecDelegate delegate, size_t *index,
     return ret;
 }
 
-int media_codec_release_output_buffer(MediaCodecDelegate delegate, size_t index)
+int media_codec_release_output_buffer(MediaCodecDelegate delegate, size_t index, uint8_t render)
 {
     REPORT_FUNCTION()
 
@@ -660,24 +676,39 @@ int media_codec_release_output_buffer(MediaCodecDelegate delegate, size_t index)
 
     status_t ret = OK;
 
-    // Make sure that all output buffers are released available at all times
-    while (d->available_output_buffer_indices.size() > 0)
+    while (d->available_output_buffer_infos.size() != 0 && d->output_format_changed)
     {
-        const size_t idx = *(d->available_output_buffer_indices.begin());
+        const MediaCodecBufferInfo *info = &*d->available_output_buffer_infos.begin();
 
-        ALOGD("Rendering and releasing buffer at index: %d", idx);
-
-        ret = d->media_codec->renderOutputBufferAndRelease(idx);
-        if (ret != OK) {
-            ALOGE("Failed to release output buffer (ret: %d, index: %d)", ret, idx);
-            if (ret == -EACCES) {
-                ALOGD("Releasing all of the output buffers from the available indices list");
-                d->available_output_buffer_indices.clear();
-            }
+        /* Make sure to handle insane buffer index values properly. These can
+         * occur during seeking and EOS states */
+        if (info->index > d->output_buffers.size())
+        {
+            ALOGE("Output buffer index %d is invalid. Skipping render and release.", info->index);
             break;
         }
 
-        d->available_output_buffer_indices.erase(d->available_output_buffer_indices.begin());
+        // Either render and release the output buffer, or just release.
+        if (render)
+        {
+            ALOGD("Rendering and releasing output buffer %d from the available indices list", info->index);
+            ret = d->media_codec->renderOutputBufferAndRelease(info->index);
+        }
+        else
+        {
+            ALOGD("Releasing output buffer %d from the available indices list", info->index);
+            ret = d->media_codec->releaseOutputBuffer(info->index);
+        }
+        if (ret != OK) {
+            ALOGE("Failed to release output buffer (ret: %d, index: %d)", ret, info->index);
+            if (ret == -EACCES) {
+                ALOGD("Releasing all of the output buffers from the available indices list");
+                d->available_output_buffer_infos.clear();
+            }
+            break;
+        }
+        ALOGD("Released output buffer %d from the available buffer infos list", info->index);
+        d->available_output_buffer_infos.erase(d->available_output_buffer_infos.begin());
     }
 
     return ret;
@@ -701,7 +732,7 @@ MediaFormat media_codec_get_output_format(MediaCodecDelegate delegate)
         return NULL;
     }
 
-    ALOGD("Output format (before): %s", msg_format->debugString().c_str());
+    ALOGD("Output format: %s", msg_format->debugString().c_str());
 
     CHECK(msg_format->findString("mime", &f->mime));
     CHECK(msg_format->findInt32("width", &f->width));
