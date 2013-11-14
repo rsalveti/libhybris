@@ -1435,6 +1435,8 @@ static struct _hook hooks[] = {
     {"popen", popen},
     {"puts", puts},
     {"sprintf", sprintf},
+    {"asprintf", asprintf},
+    {"vasprintf", vasprintf},
     {"snprintf", snprintf},
     {"vsprintf", vsprintf},
     {"vsnprintf", vsnprintf},
